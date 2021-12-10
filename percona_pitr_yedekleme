@@ -1,0 +1,57 @@
+-----Gerekli paket indirilir ve kurulur
+
+https://downloads.percona.com/downloads/percona-backup-mongodb/
+
+dpkg -i /tmp/percona-backup-mongodb_1.6.1-1.buster_amd64.deb
+
+-----Kullanıcı oluşturulur ve yetkilendilir
+
+db.getSiblingDB("admin").createRole({ "role": "pbmAnyAction",
+      "privileges": [
+         { "resource": { "anyResource": true },
+           "actions": [ "anyAction" ]
+         }
+      ],
+      "roles": []
+   });
+
+db.getSiblingDB("admin").createUser({user: "pbmuser",
+       "pwd": "secretpwd",
+       "roles" : [
+          { "db" : "admin", "role" : "readWrite", "collection": "" },
+          { "db" : "admin", "role" : "backup" },
+          { "db" : "admin", "role" : "clusterMonitor" },
+          { "db" : "admin", "role" : "restore" },
+          { "db" : "admin", "role" : "pbmAnyAction" }
+       ]
+    });
+
+-----Mongo baglantı bilgileri verilir
+
+echo 'PBM_MONGODB_URI="mongodb://pbmuser:secretpwd@localhost:25555"' > /etc/default/pbm-agent
+export PBM_MONGODB_URI="mongodb://pbmuser:secretpwd@localhost:25555"
+
+-----Yedekleme metodu ve yeri tayin edilir
+
+nano /etc/pbm-storage.conf
+
+pitr:
+  enabled: true
+  oplogSpanMin: 0
+
+storage:
+    type: filesystem
+    filesystem:
+      path: /mongoyedek
+
+pbm config --file /etc/pbm-storage.conf
+
+-----Agent çalıştırılır ve kontrol edilir
+
+systemctl start pbm-agent
+systemctl status pbm-agent
+
+-----Yedekleme başlatılır
+
+pbm backup
+pbm status
